@@ -455,7 +455,7 @@ def match_gt2pred_quick(gt_items, pred_items, line_type, img_name):
                 entry['gt_category_type'] = ""
                 entry['pred_category_type'] = get_pred_category_type(entry['pred_idx'][0], ignores_pred_items) if entry['pred_idx'] != [""] else ""
                 if entry['pred_category_type'] == 'equation_inline':
-                    merged_ignore_results.remove(entry)
+                    merged_results.remove(entry)
             entry['pred_category_type'] = get_pred_category_type(entry['pred_idx'][0], ignores_pred_items) if entry['pred_idx'] != [""] else ""
             entry['gt_attribute'] = [ignores_gt_items[_].get("attribute", {}) for _ in entry['gt_idx']] if entry['gt_idx'] != [""] else [{}] 
             entry['img_id'] = img_name

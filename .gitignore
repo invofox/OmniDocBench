@@ -20,3 +20,5 @@ old_trace
 result/
 configs/
 data/
+.DS_Store
+.vscode/
