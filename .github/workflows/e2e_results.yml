@@ -1,0 +1,23 @@
+name: E2E post evaluation
+
+
+on:
+  repository_dispatch:
+    types: [evaluation.finished]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.client_payload.id }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  finish-evaluation-process:
+    uses: invofox/shared-ci/.github/workflows/py_e2e_results.yml@v2
+    secrets: inherit
+    with:
+      prediction_url: ${{ github.event.client_payload.prediction_url }}
+      environment: "dev"
+

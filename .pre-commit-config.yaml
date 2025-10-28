@@ -1,0 +1,46 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: pdm run ruff check --config pyproject.toml --fix --exit-zero
+        language: system
+        types: [python]
+
+      - id: ruff-format
+        name: ruff format
+        entry: pdm run ruff format --config pyproject.toml
+        language: system
+        types: [python]
+
+      # Disabled until we fix the mypy errors
+      # - id: mypy-check
+      #   name: mypy check
+      #   entry: pdm run mypy --config-file pyproject.toml
+      #   language: system
+      #   types: [python]
+
+      - id: dvc-data-check
+        name: dvc data check
+        entry: pdm run data-check
+        language: system
+        types: [yaml]
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # Ensure no dvc.lock files are committed
+      - id: forbid-dvc-lock
+        name: forbid dvc.lock commits
+        entry: bash
+        args:
+          - -c
+          - |
+            if git diff --cached --name-only | grep -E '(^|/)dvc\.lock$' >/dev/null; then
+              echo 'Error: dvc.lock files must not be committed. Deleting it from the index.'
+              git restore --staged dvc.lock
+              exit 1
+            fi
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
