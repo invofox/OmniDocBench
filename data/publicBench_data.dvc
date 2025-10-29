@@ -1,0 +1,6 @@
+outs:
+- md5: 0aa856a0205abf896bcb64470c426345.dir
+  size: 399858774
+  nfiles: 1743
+  hash: md5
+  path: publicBench_data
