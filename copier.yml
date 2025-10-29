@@ -1,0 +1,47 @@
+# Basic questions (user inputs)
+vp_name:
+  type: str
+  help: "Name of the Value Proposition to be created"
+  default: "name"
+
+default_implementation:
+  type: str
+  help: "Name for the default implementation of the Value Proposition"
+  default: "subname"
+
+vp_description:
+  type: str
+  help: "Description of the Value Proposition to be created"
+  default: "Description of the Value Proposition to be created"
+
+python_version:
+  type: str
+  default: "3.10"
+
+# Computed variables (no user input, derived from answers)
+repo_name:
+  type: str
+  default: "{{ vp_name.lower().replace(' ', '_') }}"
+
+submodule_name:
+  type: str
+  default: "{{ default_implementation.lower().replace(' ', '_') }}"
+
+git_repo:
+  type: str
+  default: "git@github.com:invofox/{{ repo_name }}.git"
+
+git_branch:
+  type: str
+  default: "main"
+
+
+_tasks:
+   - mv inner_README.md README.md
+   - rm -rf .git
+   - git init
+   - git remote add origin {{ git_repo }}
+   - git checkout -b {{ git_branch }}
+
+_exclude:
+  - README.md

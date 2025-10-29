@@ -1,0 +1,38 @@
+name: Apply Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to rollback [Default: dev]"
+        required: false
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
+      model_name:
+        description: "Name of the model to rollback [Default: Delete]"
+        required: false
+        default: "Delete"
+        type: choice
+        options:
+          - Delete
+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.environment }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+  actions: write
+
+jobs:
+  rollback:
+    uses: invofox/shared-ci/.github/workflows/py_rollback.yml@v2
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+      model_name: ${{ inputs.model_name }}

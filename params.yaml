@@ -1,0 +1,2 @@
+dataset: data/<dataset>/<input>
+ground_truth: data/<dataset>/<ground_truth>

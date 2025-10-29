@@ -1,0 +1,154 @@
+name: CI Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      yolo:
+        description: "YOLO: Go directly to PROD?"
+        required: false
+        default: false
+        type: boolean
+      model_name:
+        description: "Name of the model to be implemented [Default: Delete]"
+        required: false
+        default: "Delete"
+        type: choice
+        options:
+          - Delete
+      environment:
+        description: "The environment to deploy the model to [Default: dev]"
+        required: false
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - acc
+          - prod
+
+
+  push:
+    branches:
+      - main
+    tags:
+      - "*.*.*"
+  pull_request:
+    branches:
+      - main
+      - branch-[0-9]+\.[0-9]+
+  pull_request_target:
+    types: [labeled]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.environment || 'default' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
+
+permissions:
+  id-token: write
+  contents: write
+  issues: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  version:
+    uses: invofox/shared-ci/.github/workflows/py_version.yml@v2
+    secrets: inherit
+
+  ct:
+    uses: invofox/shared-ci/.github/workflows/py_ct.yml@v2
+    secrets: inherit
+
+  check_label:
+    if: github.event_name != 'pull_request_target' || github.event.label.name == 'DEV deploy'
+    runs-on: ubuntu-latest
+    outputs:
+      dev_deploy: ${{ steps.check_label.outputs.DEV_DEPLOY_LABEL }}
+    steps:
+      - name: Check for "DEV deploy" label on PR
+        id: check_label
+        continue-on-error: true
+        run: |
+          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
+            if [[ "${{ github.actor }}" == 'dependabot[bot]' ]]; then
+              echo "DEV_DEPLOY_LABEL=true" >> $GITHUB_OUTPUT
+            else
+              PR_NUMBER=${{ github.event.pull_request.number }}
+              LABELS=$(curl -s -H "Authorization: token ${{ secrets.INVOPUPPY }}" \
+                "https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/labels" \
+                | jq -r '.[].name')
+              if echo "$LABELS" | grep -q "DEV deploy"; then
+                echo "DEV_DEPLOY_LABEL=true" >> $GITHUB_OUTPUT
+              else
+                echo "DEV_DEPLOY_LABEL=false" >> $GITHUB_OUTPUT
+              fi
+            fi
+          elif [[ "${{ github.event_name }}" == 'workflow_dispatch' ]]; then
+            # For workflow_dispatch, check if there's a PR for the current branch
+            CURRENT_BRANCH="${{ github.ref_name }}"
+            echo "Checking for PR on branch: $CURRENT_BRANCH"
+            
+            # Find open PR for the current branch
+            PR_DATA=$(curl -s -H "Authorization: token ${{ secrets.INVOPUPPY }}" \
+              "https://api.github.com/repos/${{ github.repository }}/pulls?state=open&head=${{ github.repository_owner }}:$CURRENT_BRANCH")
+            
+            PR_COUNT=$(echo "$PR_DATA" | jq '. | length')
+            
+            if [[ "$PR_COUNT" -gt 0 ]]; then
+              echo "Found PR for branch $CURRENT_BRANCH"
+              PR_NUMBER=$(echo "$PR_DATA" | jq -r '.[0].number')
+              LABELS=$(curl -s -H "Authorization: token ${{ secrets.INVOPUPPY }}" \
+                "https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/labels" \
+                | jq -r '.[].name')
+              if echo "$LABELS" | grep -q "DEV deploy"; then
+                echo "DEV_DEPLOY_LABEL=true" >> $GITHUB_OUTPUT
+              else
+                echo "DEV_DEPLOY_LABEL=false" >> $GITHUB_OUTPUT
+              fi
+            else
+              echo "No PR found for branch $CURRENT_BRANCH"
+              echo "DEV_DEPLOY_LABEL=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "DEV_DEPLOY_LABEL=false" >> $GITHUB_OUTPUT
+          fi
+          echo "DEV_DEPLOY_LABEL value: $(grep 'DEV_DEPLOY_LABEL=' $GITHUB_OUTPUT | cut -d'=' -f2)"
+        env:
+          GITHUB_TOKEN: ${{ secrets.INVOPUPPY }}
+
+
+  dev-deployment:
+    if: github.ref == 'refs/heads/main' || needs.check_label.outputs.dev_deploy == 'true'
+    uses: invofox/shared-ci/.github/workflows/py_deploy.yml@v2
+    needs: [version, check_label]
+    secrets: inherit
+    with:
+      model_name: ${{ inputs.model_name || 'Delete' }}
+      environment: "dev"
+
+  dev-e2e:
+    if: github.ref == 'refs/heads/main' || needs.check_label.outputs.dev_deploy == 'true'
+    needs: dev-deployment
+    uses: invofox/shared-ci/.github/workflows/py_e2e.yml@v2
+    secrets: inherit
+    with:
+      model_name: ${{ inputs.model_name || 'Delete' }}
+      model_version: ${{ needs.dev-deployment.outputs.model_version }}
+      environment: "dev"
+
+  acc-deployment:
+    if: startsWith(github.ref, 'refs/tags/')
+    uses: invofox/shared-ci/.github/workflows/py_deploy.yml@v2
+    needs: [version]
+    secrets: inherit
+    with:
+      model_name: ${{ inputs.model_name || 'Delete' }}
+      environment: "acc"
+
+  prod-deployment:
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prod')
+    uses: invofox/shared-ci/.github/workflows/py_deploy.yml@v2
+    needs: [version]
+    secrets: inherit
+    with:
+      model_name: ${{ inputs.model_name }}
+      environment: "prod"

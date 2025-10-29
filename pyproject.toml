@@ -1,0 +1,170 @@
+[project]
+name = "OmniDocBench"
+version = "1.0.0"
+description = "The OmniDocBench is a solution proposal for the problem of Public Invoice Region Benchmark."
+authors = [
+    {name = "Adrian Ramirez", email = "adrian@invofox.com"},
+    {name = "Carmelo Juanes", email = "carmelo@invofox.com"},
+    {name = "Ernesto Peña", email = "ernesto@invofox.com"},
+    {name = "Victor Uceda", email = "victor.uceda@invofox.com"},
+    {name = "William Martinez", email = "William.martinez@invofox.com"},
+    {name = "Santiago Rincon", email = "Santiago.rincon@invofox.com"},
+    {name = "David Camino", email = "david.camino@invofox.com"},
+]
+requires-python = "==3.10.*"
+readme = "README.md"
+license = {text = "MIT"}
+dependencies = [
+    # Core production dependencies for inference
+]
+
+[dependency-groups]
+dev = [
+    # Development dependencies to suit the project needs: kpis, auxiliar scripts
+    "dvc>=3.0.0",
+    "dvc-s3>=3.0.0",
+    "joblib>=1.3.0",
+    "pandas==2.2.3",
+    "plotly>=5.17.0",
+    "pytest>=7.0.0",
+    "pytest-mock>=3.10.0",
+    "pytest-cov>=4.0.0",
+    "pytest-snapshot>=0.9.0",
+    "rapidfuzz==3.10.1",
+    "streamlit>=1.28.0",
+    "ruff==0.12.12",
+    "mypy==1.17.1",
+    "pre-commit==4.3.0",
+]
+local = [
+    # Additional dependencies for local development environment
+    "ipykernel>=6.29.5",
+    "markdown2==2.5",
+    "matplotlib>=3.9.2",
+    "memory_profiler==0.61.0",
+    "multiset==3.2.0",
+    "munkres==1.1.4",
+    "pathlib2>=2.3.0",
+    "pdfkit==1.0.0",
+    "seaborn>=0.13.2"
+]
+ci = [
+    "boto3>=1.39.8",
+    "pymongo==4.14.1",
+    "python-dotenv==1.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short --disable-warnings"
+filterwarnings = [
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+]
+markers = [
+    "unit: marks tests as unit tests",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+snapshot_dir = "tests/snapshots"
+
+[tool.coverage.report]
+omit = [
+  "config*.py",
+  "tests/*",
+]
+
+[tool.ruff]
+# Enable Pyflakes ('F'), pycodestyle ('E'), and isort ('I') rules
+lint.select = ["E", "F", "I", "N", "B", "C4", "PT", "RET", "SIM"]
+# Increased from Black's default of 88
+line-length = 120
+# Target Python 3.10+
+target-version = "py310"
+# Sort imports according to isort rules
+lint.isort.known-first-party = ["delete", "scripts", "tests"]
+# Configure isort through ruff
+lint.isort.case-sensitive = true
+lint.isort.combine-as-imports = true
+lint.isort.force-wrap-aliases = true
+lint.isort.split-on-trailing-comma = true
+# Autofix rules
+lint.fixable = ["ALL"]
+format.quote-style = "double"
+# Exclude directories
+exclude = [
+    ".git",
+    ".dvc",
+    ".github",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".venv",
+    ".vscode",
+    "data",
+    "docs",
+    "outputs",
+    "params",
+    "__pycache__",
+    "*.pyc",
+    "*.egg-info",
+    ".pytest_cache",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[tool.pdm]
+distribution = false
+
+[[tool.pdm.source]]
+name = "aws"
+url = "https://aws:${CODEARTIFACT_AUTH_TOKEN}@invofox-private-domain-834847960948.d.codeartifact.eu-west-1.amazonaws.com/pypi/private-pypi/simple/"
+include_packages = []
+
+[tool.pdm.scripts]
+lint = "ruff check ."
+lint-fix = "ruff check --fix ."
+format = "ruff format ."
+ruff-fix = "ruff check --fix . && ruff format ."
+typecheck = "mypy ."
+test = {env = {PYTHONPATH = "."}, cmd = "pytest"}
+dashboard = "streamlit run kpis/dashboard/dashboard.py"
+lock = { composite = ["pdm lock", "pdm lock --prod -L pdm.prod.lock", "pdm lock -G dev -L pdm.dev.lock", "pdm lock -G local -L pdm.local.lock", "pdm lock -G ci -L pdm.ci.lock"] }
+data-push = { composite = ["python scripts/manage_data.py --mode=push", "dvc push", "git add data/*.dvc data/*.gitignore"] }
+data-pull = { composite = ["python scripts/manage_data.py --mode=pull"] }
+data-reset = { composite = ["rm -rf .dvc/cache .dvc/tmp", "dvc gc -w -f", "dvc pull --force"] }
+data-reset-remote = { composite = ["dvc repro", "dvc commit", "dvc push", "rm dvc.lock", "git add dvc.lock"]}
+data-check = "bash scripts/dvc_data_check.sh"
+exp-save = "dvc exp save"
+exp-push = "dvc exp push origin"
+exp-pull = "dvc exp pull origin"
+exp-list = "dvc exp ls origin"
+exp-list-local = "dvc exp ls"
+exp-show = "dvc exp show --no-pager"
+exp-compare = "dvc exp diff"
+exp-clean-remote = "dvc exp remove -g origin"
+exp-clean-local = "dvc exp remove"
+exp-run = "dvc exp run"
+exp-start-queue = "dvc queue start"
+exp-show-queue = "dvc queue status"
+exp-stop-queue = "dvc queue stop"
+exp-checkout = "dvc exp apply"

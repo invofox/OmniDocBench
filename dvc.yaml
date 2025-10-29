@@ -1,0 +1,34 @@
+stages:
+  get_credentials:
+    cmd: source .env && echo "Credentials loaded"
+    deps:
+      - .env
+  experiment:
+    cmd: python scripts/atomic_execution.py --origin_data_url ${dataset} --output_dir outputs --disable_cache --region us
+    params:
+      - dataset
+    deps:
+      - scripts/atomic_execution.py
+      - params.yaml
+      - ${dataset}
+      - delete
+    metrics:
+      - outputs/timing_results.json
+      - outputs/total_operational_metrics.json
+      - outputs/operational_metrics.json
+    outs:
+      - outputs/postprocess_result.json
+      - outputs/errors.json
+  evaluate:
+    cmd: python scripts/evaluate_kpis.py --origin_data_url ${ground_truth} --postprocess_result_path outputs/postprocess_result.json --errors_result_path outputs/errors.json --total_operational_metrics outputs/total_operational_metrics.json
+    params:
+      - ground_truth
+    deps:
+      - scripts/evaluate_kpis.py
+      - outputs/postprocess_result.json
+      - outputs/errors.json
+      - outputs/total_operational_metrics.json
+      - ${ground_truth}
+      - kpis
+    metrics:
+      - outputs/metrics.json

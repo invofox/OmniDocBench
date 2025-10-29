@@ -19,3 +19,6 @@ old_tools
 old_trace
 result/
 configs/
+.DS_Store
+/runs
+.vscode/

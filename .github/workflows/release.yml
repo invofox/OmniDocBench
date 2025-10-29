@@ -1,0 +1,22 @@
+name: Create New Release
+
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - branch-[0-9]+\.[0-9]+
+
+permissions:
+  id-token: write
+  contents: write
+  actions: write
+  pull-requests: write
+
+jobs:
+  release:
+    uses: invofox/shared-ci/.github/workflows/py_release.yml@main
+    secrets: inherit
+    with:
+      yolo: false
+

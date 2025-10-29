@@ -1,0 +1,5 @@
+[core]
+    autostage = true
+    remote = s3-basic
+['remote "s3-basic"']
+    url = s3://sharedresourcesdev-devsto-devverdelissbucketbe77c6-fmioa6199yey/dvc/OmniDocBench/
